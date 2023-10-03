@@ -21,23 +21,28 @@ pub fn zip_create_from_directory_with_options(
 ) -> ZipResult<()> {
     let file = File::create(archive_file)?;
     let mut zip_writer = zip::ZipWriter::new(file);
-    zip_writer.create_from_directory_with_options(directory, options)
+    zip_writer.create_from_directory_with_options(directory, options)?;
+    Ok(())
 }
 
 pub trait ZipWriterExtensions {
+    type Inner;
+
     /// Creates a zip archive that contains the files and directories from the specified directory.
-    fn create_from_directory(&mut self, directory: &PathBuf) -> ZipResult<()>;
+    fn create_from_directory(&mut self, directory: &PathBuf) -> ZipResult<Self::Inner>;
 
     /// Creates a zip archive that contains the files and directories from the specified directory, uses the specified compression level.
     fn create_from_directory_with_options(
         &mut self,
         directory: &PathBuf,
         options: FileOptions,
-    ) -> ZipResult<()>;
+    ) -> ZipResult<Self::Inner>;
 }
 
 impl<W: Write + io::Seek> ZipWriterExtensions for ZipWriter<W> {
-    fn create_from_directory(&mut self, directory: &PathBuf) -> ZipResult<()> {
+    type Inner = W;
+
+    fn create_from_directory(&mut self, directory: &PathBuf) -> ZipResult<W> {
         let options = write::FileOptions::default().compression_method(CompressionMethod::Stored);
         self.create_from_directory_with_options(directory, options)
     }
@@ -46,7 +51,7 @@ impl<W: Write + io::Seek> ZipWriterExtensions for ZipWriter<W> {
         &mut self,
         directory: &PathBuf,
         options: FileOptions,
-    ) -> ZipResult<()> {
+    ) -> ZipResult<W> {
         let mut paths_queue: Vec<PathBuf> = vec![];
         paths_queue.push(directory.clone());
 
@@ -73,7 +78,6 @@ impl<W: Write + io::Seek> ZipWriterExtensions for ZipWriter<W> {
             }
         }
 
-        self.finish()?;
-        Ok(())
+        self.finish()
     }
 }
